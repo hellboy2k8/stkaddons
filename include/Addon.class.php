@@ -304,32 +304,64 @@ class Addon {
         Cache::clearAddon($this->id);
 	
         // Remove files associated with this addon
-        $get_files_query = 'SELECT *
-            FROM `'.DB_PREFIX."files`
-            WHERE `addon_id` = '$this->id'";
-        $get_files_handle = sql_query($get_files_query);
-        if (!$get_files_handle)
-            throw new AddonException(htmlspecialchars(_('Failed to find files associated with this addon.')));
+        try{                                                                   
+            $get_files_query = DBConnection::get()->query(                         
+                    'SELECT *                                                  
+                    FROM `'.DB_PREFIX.'files`                                  
+                    WHERE `addon_id` = :addon_id',                             
+                    DBConnection::FETCH_ALL,                                   
+                    array(                                                     
+                        ':addon_id' => (string)$this->id                       
+                    )                                                          
+            );                                                                 
+                                                                               
+        }catch(DBException $e){                                                
+            throw new AddonException(htmlspecialchars(                         
+                _('Failed to find files associated with this addon.')          
+            ));                                                                
+        }  
 
-        $num_files = mysql_num_rows($get_files_handle);
-        for ($i = 1; $i <= $num_files; $i++)
-        {
-            $get_file = mysql_fetch_assoc($get_files_handle);
+        $num_files = sizeof($get_files_query);
+        for ($i = 0; $i < $num_files; $i++)                                    
+        {                                                                      
+                                                                               
+            $get_file = $get_files_query[$i];                                                                                
             if (file_exists(UP_LOCATION.$get_file['file_path']) && !unlink(UP_LOCATION.$get_file['file_path']))
                 echo '<span class="error">'.htmlspecialchars(_('Failed to delete file:')).' '.$get_file['file_path'].'</span><br />';
         }
         
         // Remove file records associated with addon
-        $remove_file_query = 'DELETE FROM `'.DB_PREFIX.'files`
-            WHERE `addon_id` = \''.$this->id.'\'';
-        $remove_file_handle = sql_query($remove_file_query);
-        if (!$remove_file_handle)
-            echo '<span class="error">'.htmlspecialchars(_('Failed to remove file records for this addon.')).'</span><br />';
-
-        // Remove addon entry
-        if (!sql_remove_where('addons', 'id', $this->id))
-            throw new AddonException(htmlspecialchars(_('Failed to remove addon.')));
-
+        try{                                                                   
+            $remove_file_query = DBConnection::get()->query(                       
+                    'DELETE                                                    
+                    FROM `'.DB_PREFIX.'files`                                  
+                    WHERE `addon_id` = :addon_id',                             
+                    DBConnection::NOTHING,                                     
+                    array(                                                     
+                        ':addon_id' => (string)$this->id                       
+                    )                                                          
+                );                                                             
+        }catch(DBException $e){                                                
+            throw new AddonException(htmlspecialchars(                         
+                _('Failed to remove file records for this addon.')             
+            ));                                                                
+        }                                                                      
+        try{                                                                   
+            $remove_addon_query = DBConnection::get()->query(                      
+                    'DELETE                                                    
+                    FROM `'.DB_PREFIX.'addons`                                 
+                    WHERE `id` = :addon_id',                                   
+                    DBConnection::NOTHING,                                     
+                    array(                                                     
+                        ':addon_id' => (string)$this->id                       
+                    )                                                          
+            );                                                                 
+        }catch(DBException $e){                                                
+            throw new AddonException(htmlspecialchars(                         
+                _('Failed to remove addon.')                                   
+            ));                                                                
+        }
+        
         writeAssetXML();
         writeNewsXML();
         Log::newEvent("Deleted add-on '{$this->name}'");
