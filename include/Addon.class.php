@@ -391,12 +391,22 @@ class Addon {
             throw new AddonException(htmlspecialchars(_('The add-on file could not be queued for deletion.')));
 	
         // Remove the revision record from the database
-        $query = 'DELETE FROM `'.DB_PREFIX.$this->type.'_revs`
-            WHERE `addon_id` = \''.$this->id.'\'
-            AND `revision` = '.$rev;
-        $handle = sql_query($query);
-        if (!$handle)
-            throw new AddonException(htmlspecialchars(_('The add-on revision could not be deleted.')));
+        $query = 'DELETE FROM `'.DB_PREFIX.$this->type.'_revs` WHERE `addon_id` = :addon_id AND `revision`  = :rev' ;
+        
+        try{                                                                   
+            $handle = DBConnection::get()->query(                              
+                    $query,                                                    
+                    DBConnection::NOTHING,                                     
+                    array(                                                     
+                        ':addon_id' => (string)$this->id,                      
+                        ':rev' => (string)$rev                                 
+                    )                                                          
+            );                                                                 
+        }catch(DBException $e){                                                
+            throw new AddonException(htmlspecialchars(                             
+                _('The add-on revision could not be deleted.')                     
+            ));                                                                    
+        }
 	
         Log::newEvent('Deleted revision '.$rev.' of \''.$this->name.'\'');
         writeAssetXML();
