@@ -265,9 +265,23 @@ class Addon {
             throw new AddonException('You must be logged in to create an add-on revision.');
 
         // Make sure an add-on file with this id does not exist
-        if (sql_exist($this->type.'_revs', 'id', $fileid))
+        try {                                                                      
+            $num = DBConnection::get()->query(                                     
+                    'SELECT *                                                      
+                     FROM `'.DB_PREFIX.$this->type.'_revs`                               
+                     WHERE `id` = :fileid',                                        
+                    DBConnection::ROW_COUNT,                                       
+                    array(':fileid' => (string)$fileid                             
+                    )                                                              
+            );                                                                 
+        } catch (DBException $e) {                                             
+            throw new AddonException(htmlspecialchars(                             
+                _('Failed to access the _revs table.')                         
+            ));                                                                
+        }                                                                      
+        if($num>0)                                                             
             throw new AddonException(htmlspecialchars(_('The file you are trying to create already exists.')));
-        
+
         // Make sure user has permission to upload a new revision for this add-on
         if (User::$user_id !== $this->uploaderId && !$_SESSION['role']['manageaddons']) {
             throw new AddonException(htmlspecialchars(_('You do not have the necessary permissions to perform this action.')));
@@ -316,8 +330,24 @@ class Addon {
             $fields[] = 'moderator_note';
             $values[] = $moderator_message;
         }
-        if (!sql_insert($this->type.'_revs',$fields,$values))
-            throw new AddonException('Failed to create add-on revision.');
+
+        $parameters = array();                                                 
+        $index = 0;                                                            
+        foreach ($fields as $field){                                           
+            $parameters[":".$field] = $values[$index++];                       
+        }  
+
+        try {                                                                  
+            $sql_insert = DBConnection::get()->query(                          
+                    'INSERT                                                    
+                    INTO `'.DB_PREFIX.$this->type.'_revs`  ('.implode(", ",$fields).') 
+                    VALUES('.implode(", ",array_keys($parameters)).')',        
+                    DBConnection::NOTHING,                                     
+                    $parameters                                                
+            );                                                                 
+        } catch (DBException $e) {                                             
+            throw new AddonException('Failed to create add-on revision.');                                                      
+        } 
         
         // Send mail to moderators
         moderator_email('New Addon Upload',
