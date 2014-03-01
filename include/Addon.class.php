@@ -107,26 +107,7 @@ class Addon {
         }
     }
 
-    /**                                                                        
-     * Create a string from Array                                              
-     * @param array The array to be converted to String
-     * @param delimiter The delimiter to be used                                                           
-     * @return string String containing elements of array separated by delimiter                                                         
-     */                                                                        
-    public static function createStringFromArray($properties,$delimiter) {         
-        $field = "";                                                           
-        $first= true;                                                          
-        foreach($properties as $propertie)                                     
-        {                                                                      
-            if(!$first)                                                        
-            {                                                                  
-                $field .= ", ";                                                
-            }                                                                  
-            $field .= $delimiter.$propertie.$delimiter;                        
-            $first = false;                                                    
-        }                                                                      
-        return $field;                                                         
-    }  
+  
 
 
     /**
@@ -198,16 +179,20 @@ class Addon {
                 $values[] = '0';
         }
 
-        $field = self::createStringFromArray($fields,"`");                     
-        $field_ = self::createStringFromArray($values,"'"); 
+        $parameters = array();                                                 
+        $index = 0;                                                            
+        foreach ($fields as $field){                                           
+            $parameters[":".$field] = $values[$index++];                       
+        }  
+
 
         try {                                                                  
             $sql_insert = DBConnection::get()->query(                          
                     'INSERT                                                    
-                    INTO `'.DB_PREFIX.'addons`  ('.$field.')                   
-                    VALUES('.$field_.')',                                      
+                    INTO `'.DB_PREFIX.'addons`  ('.implode(", ",$fields).')                   
+                    VALUES('.implode(", ",array_keys($parameters)).')',                                      
                     DBConnection::NOTHING,                                     
-                    array()                                                    
+                    $parameters                                                   
             );                                                                 
         } catch (DBException $e) {                                             
             throw new AddonException(htmlspecialchars(                          
@@ -236,16 +221,19 @@ class Addon {
             $values[] = $moderator_message;
         }
 
-        $field = self::createStringFromArray($fields,"`");                     
-        $field_ = self::createStringFromArray($values,"'");
+        $parameters = array();                                                 
+        $index = 0;                                                            
+        foreach ($fields as $field){                                           
+            $parameters[":".$field] = $values[$index++];                       
+        }
 
         try {                                                                  
             $sql_insert = DBConnection::get()->query(                          
                     'INSERT                                                    
-                    INTO `'.DB_PREFIX.$type.'_revs`  ('.$field.')              
-                    VALUES('.$field_.')',                                      
+                    INTO `'.DB_PREFIX.$type.'_revs`  ('.implode(", ",$fields).')              
+                    VALUES('.implode(", ",array_keys($parameters)).')',                                      
                     DBConnection::NOTHING,                                     
-                    array()                                                    
+                    $parameters                                                    
             );                                                                 
         } catch (DBException $e) {                                             
             return false;                                                      
