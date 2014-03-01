@@ -107,6 +107,28 @@ class Addon {
         }
     }
 
+    /**                                                                        
+     * Create a string from Array                                              
+     * @param array The array to be converted to String
+     * @param delimiter The delimiter to be used                                                           
+     * @return string String containing elements of array separated by delimiter                                                         
+     */                                                                        
+    public static function createStringFromArray($properties,$delimiter) {         
+        $field = "";                                                           
+        $first= true;                                                          
+        foreach($properties as $propertie)                                     
+        {                                                                      
+            if(!$first)                                                        
+            {                                                                  
+                $field .= ", ";                                                
+            }                                                                  
+            $field .= $delimiter.$propertie.$delimiter;                        
+            $first = false;                                                    
+        }                                                                      
+        return $field;                                                         
+    }  
+
+
     /**
      * Create a new add-on record and an intial revision
      * @global string $moderator_message Initial revision status message
@@ -141,8 +163,24 @@ class Addon {
         // Make sure no revisions with this id exists
         // FIXME: Check if this id is redundant or not. Could just
         //        auto-increment this column if it is unused elsewhere.
-        if(sql_exist($type.'_revs', 'id', $fileid))
+            
+        try {                                                                
+            $num = DBConnection::get()->query(                                 
+                    'SELECT *                                                  
+                     FROM `'.DB_PREFIX.$type.'_revs`                           
+                     WHERE `id` = :fileid',                                    
+                    DBConnection::ROW_COUNT,                                   
+                    array(':fileid' => (string)$fileid                         
+                    )                                                          
+            );                                                                 
+        } catch (DBException $e) {                                             
+            throw new AddonException(htmlspecialchars(                          
+                _('Failed to access the _revs table.')                         
+            ));                                                                
+        }                                                                      
+        if($num>0)                                                             
             throw new AddonException(htmlspecialchars(_('The add-on you are trying to create already exists.')));
+            
 
         echo htmlspecialchars(_('Creating a new add-on...')).'<br />';
         $fields = array('id','type','name','uploader','designer','license');
@@ -159,8 +197,24 @@ class Addon {
             else
                 $values[] = '0';
         }
-        if (!sql_insert('addons',$fields,$values))
-            throw new AddonException(htmlspecialchars(_('Your add-on could not be uploaded.')));
+
+        $field = self::createStringFromArray($fields,"`");                     
+        $field_ = self::createStringFromArray($values,"'"); 
+
+        try {                                                                  
+            $sql_insert = DBConnection::get()->query(                          
+                    'INSERT                                                    
+                    INTO `'.DB_PREFIX.'addons`  ('.$field.')                   
+                    VALUES('.$field_.')',                                      
+                    DBConnection::NOTHING,                                     
+                    array()                                                    
+            );                                                                 
+        } catch (DBException $e) {                                             
+            throw new AddonException(htmlspecialchars(                          
+                _('Your add-on could not be uploaded')                         
+            ));                                                                
+        } 
+
 
         // Add the first revision
         $rev = 1;
@@ -181,8 +235,22 @@ class Addon {
             $fields[] = 'moderator_note';
             $values[] = $moderator_message;
         }
-        if (!sql_insert($type.'_revs',$fields,$values))
-            return false;
+
+        $field = self::createStringFromArray($fields,"`");                     
+        $field_ = self::createStringFromArray($values,"'");
+
+        try {                                                                  
+            $sql_insert = DBConnection::get()->query(                          
+                    'INSERT                                                    
+                    INTO `'.DB_PREFIX.$type.'_revs`  ('.$field.')              
+                    VALUES('.$field_.')',                                      
+                    DBConnection::NOTHING,                                     
+                    array()                                                    
+            );                                                                 
+        } catch (DBException $e) {                                             
+            return false;                                                      
+        }
+
         // Send mail to moderators
         moderator_email('New Addon Upload',
                 "{$_SESSION['user']} has uploaded a new {$type} '{$attributes['name']}' ($id)");
