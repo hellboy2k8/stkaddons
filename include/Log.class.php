@@ -63,7 +63,8 @@ class Log {
                      ORDER BY `l`.`date` DESC
                      LIMIT :limit',
                     DBConnection::FETCH_ALL,
-                    array(':limit' => (int) $number));
+                    array(),
+                    array(':limit'=>(int)$limit));
         } catch (DBException $e) {
             throw new Exception('Failed to fetch log entries.');
         }
